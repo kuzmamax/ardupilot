@@ -32,17 +32,27 @@ tree.
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 ./waf configure --board sitl
-./waf copter          # 1429/1429, links build/sitl/bin/arducopter
+./waf copter           # 1429/1429, links build/sitl/bin/arducopter
+./waf rover             # 1376/1376, links build/sitl/bin/ardurover
 ```
 
-Booted the binary directly and confirmed it initializes and binds its MAVLink port:
+Beyond boot — a full scripted flight/drive cycle via pymavlink, asserting real telemetry
+transitions (not just "it started"). Scripts live in `Tools/claude-smoke-tests/`
+(see that dir's README for usage):
 
-```
-Starting sketch 'ArduCopter'
-bind port 5760 for SERIAL0
-Waiting for connection ....
-```
+- **Copter**: GUIDED → ARM → TAKEOFF to ~9m → RTL → auto-disarm — all confirmed via
+  `HEARTBEAT`/`GLOBAL_POSITION_INT`, `sitl_flight_smoke.py` exits 0.
+- **Rover**: GUIDED → ARM → drove >3m toward a GUIDED position target → DISARM —
+  `sitl_rover_smoke.py` exits 0.
 
-Not yet exercised: `Tools/autotest/sim_vehicle.py` (the normal SITL entry point, wraps
-the binary with MAVProxy), Rover/Plane builds, `autotest.py` regression suite,
-dataflash log analysis on a real flight. Add those when a task actually needs them.
+Not yet exercised: `Tools/autotest/sim_vehicle.py` (the MAVProxy-wrapped normal
+interactive entry point — the smoke tests above talk MAVLink directly instead, which is
+what the skill recommends for scripted/repeatable scenarios anyway), Plane build, the
+full `autotest.py` regression suite (10-30+ min, run it when validating an actual code
+change, not as a smoke test), dataflash log analysis on a real flight. Add those when a
+task actually needs them.
+
+**Gotcha found while testing**: EKF/GPS needs ~15-20s (wall clock, even at `--speedup 5`)
+to settle after connecting before arming succeeds — arming attempted earlier fails
+silently against a fresh `-w` (wiped) instance. Both smoke scripts already wait for this;
+don't shorten it if you copy the pattern.
